@@ -1,0 +1,68 @@
+---
+title: "Reproducible Research: Peer Assessment 2"
+author: "Michael Krämer"
+date: "02.11.2015"
+output: 
+  html_document:
+    keep_md: true
+---
+
+## Loading and preprocessing the data
+
+```{r initialization}
+# load libs
+suppressPackageStartupMessages(library(dplyr))
+library(R.utils)
+library(ggplot2)
+library(knitr)
+library(xtable)
+library(lubridate)
+library(scales)
+opts_chunk$set(fig.path='figure/')
+```
+```{r loading}
+# getting, unzipping and reading of data
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile="repdata-data-StormData.csv.bz2", method="curl")
+bunzip2("repdata-data-StormData.csv.bz2", overwrite = TRUE, remove=FALSE)
+my_data <- tbl_df(read.csv("repdata-data-StormData.csv", stringsAsFactors = FALSE))
+```
+
+First we will focus on events that caused harm to the population. Therefore, we strip the dataset to only those observations that include injuries or fatalities.
+
+```{r}
+health_data <- my_data %>% filter(FATALITIES > 0 | INJURIES > 0)
+health_data$EVTYPE <- gsub("^(THUNDER|TSTM).*$", replacement = "Thunderstorm Wind", x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^(WILD).*$", replacement = "Wildfire", x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^(WIN.*STOR).*$", replacement = "Winter Storm", x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^(WINTER W|WINTR).*$", replacement = "Winter Weather", x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^(HURRI).*$", replacement = "Hurricane (Typhoon)", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^.*(FLASH).*$", replacement = "Flash Flood", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^.*(FLOOD).*$", replacement = "Flood", x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^MARINE (TSTM|THUND).*$", replacement = "Marine Thunderstorm Wind", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^MARINE.*HIGH.*$", replacement = "Marine High Wind", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^MARINE.*$", replacement = "Marine Strong Wind", x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^.*surf.*$", replacement = "High Surf", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^HIGH WI.*$", replacement = "High Wind", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^HEAT.*$", replacement = "Heat", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^EXC.*HEAT.*$", replacement = "Excessive Heat", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^TORN.*$", replacement = "Tornado", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^EXT.*COLD.*$", replacement = "Extreme Cold/Wind Chill", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^AVAL.*$", replacement = "Avalanche", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^.*LIGHTN.*$", replacement = "Lightning", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^[^E].*OLD.*$", replacement = "Cold/Wind Chill", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^STRONG.*$", replacement = "Strong Wind", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^RIP.*$", replacement = "Rip Current", ignore.case = TRUE, x = health_data$EVTYPE)
+health_data$EVTYPE <- gsub("^ICE ST.*$", replacement = "Ice Storm", ignore.case = TRUE, x = health_data$EVTYPE)
+
+fatal_total <- sum(health_data$FATALITIES)
+injured_total <- sum(health_data$INJURIES)
+health_sum <- health_data %>% group_by(EVTYPE) %>% summarize(fatal = sum(FATALITIES), injured = sum(INJURIES)) %>% arrange(desc(fatal))
+
+# find 10 most severe EVTYPES causing deaths and injuries. Combine then in a unique list.
+types <- unique(c(head(health_sum$EVTYPE, n=10), head(arrange(health_sum, desc(injured_rel))$EVTYPE, n=10)))
+health_result <- rbind(data.frame(EVTYPE = health_sum_f$EVTYPE, count = health_sum_f$fatal, sev = "FATAL"), data.frame(EVTYPE = health_sum_f$EVTYPE, count = health_sum_f$injured, sev = "INJURED"))
+
+ggplot(health_result, aes(x = EVTYPE, y = count, fill = sev)) + geom_bar(stat = "identity") + xlab("Event types") + coord_flip()
+
+```
+
