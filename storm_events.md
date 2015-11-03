@@ -1,12 +1,6 @@
----
-title: "NEED TITLE HERE"
-author: "Michael Krämer"
-date: "02.11.2015"
-output: 
-  html_document:
-    keep_md: true
-    fig_caption: yes
----
+# NEED TITLE HERE
+Michael Krämer  
+02.11.2015  
 
 TITLE GOES HERE
 ========================
@@ -19,7 +13,8 @@ The report targets the questions what kind of weather incidents have the highest
 ### Loading and preprocessing the data
 The data is provided by the National Climatic Data Center and will be automatically downloaded and extracted locally by the script. The file is read completely into R then.
 
-```{r initialization}
+
+```r
 # load libs
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(R.utils))
@@ -29,12 +24,14 @@ library(xtable)
 library(lubridate)
 library(scales)
 ```
-```{r downloading, cache=TRUE}
+
+```r
 # getting, unzipping of data
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile="repdata-data-StormData.csv.bz2", method="curl")
 bunzip2("repdata-data-StormData.csv.bz2", overwrite = TRUE, remove=FALSE)
 ```
-```{r reading, cache=TRUE}
+
+```r
 # reading of data
 all_data <- tbl_df(read.csv("repdata-data-StormData.csv", stringsAsFactors = FALSE))
 ```
@@ -44,7 +41,8 @@ First, the data set is filtered so that events which neither caused health or ec
 
 Because the investigation is focused on the event types, fatalities, injuries, property damage and crop damage values only, the other columns are dropped.
 
-```{r filtering}
+
+```r
 harm_data <- all_data %>% filter(FATALITIES > 0 | INJURIES > 0 | PROPDMG > 0 | CROPDMG > 0)
 harm_year_data <- mutate(harm_data, YEAR = year(parse_date_time(BGN_DATE, "m*!d!Y! H!M!S!"))) # save data of all years for appendinx
 harm_data <- filter(harm_year_data, YEAR > 1995) %>%
@@ -54,7 +52,8 @@ harm_data <- filter(harm_year_data, YEAR > 1995) %>%
 Unfortunately, the remaining data has still many typos or minor differences in the values of EVTYPE variable, therefore follows an attempt to unify those values by using regular expressions. It does not aim to achieve a 100% solution, but focusses on those values that cause major damages. To figure those out, the list was manually viewed in R Studio.
 The correct values were taken from the National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) in Section 2.1.1 and is comprehensively saved in the project repository as evtypes.csv.
 
-```{r cleaning_part}
+
+```r
 harm_data$EVTYPE <- gsub("^(THUNDER|TSTM).*$", replacement = "Thunderstorm Wind", x = harm_data$EVTYPE)
 harm_data$EVTYPE <- gsub("^(WILD).*$", replacement = "Wildfire", x = harm_data$EVTYPE)
 harm_data$EVTYPE <- gsub("^(WIN.*STOR).*$", replacement = "Winter Storm", x = harm_data$EVTYPE)
@@ -79,14 +78,14 @@ harm_data$EVTYPE <- gsub("^RIP.*$", replacement = "Rip Current", ignore.case = T
 harm_data$EVTYPE <- gsub("^ICE ST.*$", replacement = "Ice Storm", ignore.case = TRUE, x = harm_data$EVTYPE)
 harm_data$EVTYPE <- gsub("^TROPICAL ST.*$", replacement = "Tropical Storm", ignore.case = TRUE, x = harm_data$EVTYPE)
 harm_data$EVTYPE <- gsub("^SURGE.*$", replacement = "Storm Surge/Tide", ignore.case = TRUE, x = harm_data$EVTYPE)
-
 ```
 
 This shows a dataset which still has some clutter, but in regards to the most impactful events it is meaningful.
 
 The values for property and crop damage are recorded with an external magnitude like k (1000) or m(1000000). To be able to calculate with them, an effective value will be calculated.
 
-```{r effective_damage}
+
+```r
 get_multiplier <- function(x)
 {
     m <- 0;
@@ -113,7 +112,8 @@ harm_data <- mutate(harm_data, PROPEFF = PROPDMG * sapply(PROPDMGEXP, get_multip
 
 The next step is to find the event types that cause most population harm. Since I don't want to employ a measure to compare deaths and injuries, I decided to figure out the 5 most harmful event types regarding deaths and injuries separately and combine these types in a unique list. The assumption is that there will be a large overlap. 
 
-```{r health_processing_1}
+
+```r
 # summarize data to sum up deaths and injuries by EVTYPE
 harm_sum <- harm_data %>% group_by(EVTYPE) %>% summarize(fatal = sum(FATALITIES), injured = sum(INJURIES)) %>% arrange(desc(fatal))
 
@@ -122,27 +122,36 @@ health_types <- unique(c(head(harm_sum$EVTYPE, n=5), head(arrange(harm_sum, desc
 health_types
 ```
 
-This shows that the two lists of 5 types each combine to `r length(health_types)` unique event types.
+```
+## [1] "Excessive Heat"    "Tornado"           "Flash Flood"      
+## [4] "Lightning"         "Rip Current"       "Flood"            
+## [7] "Thunderstorm Wind"
+```
+
+This shows that the two lists of 5 types each combine to 7 unique event types.
 
 Further, the list is filtered to these types and recombined into a long format to fit for the plot.
 
-```{r}
 
+```r
 harm_sum_f <- harm_sum %>% filter(EVTYPE %in% health_types)
 health_result <- rbind(data.frame(EVTYPE = harm_sum_f$EVTYPE, count = harm_sum_f$fatal, sev = "FATAL"), data.frame(EVTYPE = harm_sum_f$EVTYPE, count = harm_sum_f$injured, sev = "INJURED"))
 ```
 
-The most harmful event type causing deaths is `r harm_sum$EVTYPE[1]` (`r format(harm_sum$fatal[1], scientific=FALSE, digits=0)` deaths, `r format(harm_sum$injured[1], scientific=FALSE, digits=0)` injuries) while `r arrange(harm_sum, desc(injured))$EVTYPE[1]` causes most injuries (`r format(arrange(harm_sum, desc(injured))$fatal[1], scientific=FALSE, digits=0)` deaths, `r format(arrange(harm_sum, desc(injured))$injured[1], scientific=FALSE, digits=0)` injuries) in the time frame from 1996 to 2012.
+The most harmful event type causing deaths is Excessive Heat (1797 deaths, 6391 injuries) while Tornado causes most injuries (1511 deaths, 20667 injuries) in the time frame from 1996 to 2012.
 
-```{r 'figure1', fig.cap='Number of deaths and injuries by event type'}
+
+```r
 ggplot(health_result, aes(x = EVTYPE, y = count, fill = sev)) + geom_bar(stat = "identity") + xlab("") + ylab("# of deaths / injuries") + coord_flip()
-
 ```
+
+![Number of deaths and injuries by event type](storm_events_files/figure-html/figure1-1.png) 
 
 ### Economic damage
 Summing the economic damages leads to another list, in which the following 5 events have the most impact.
 
-```{r economy_processing_1}
+
+```r
 # summarize data to sum up economic damage by EVTYPE
 damage_sum <- harm_data %>% group_by(EVTYPE) %>% summarize(damage = sum(PROPEFF) + sum(CROPEFF)) %>% arrange(desc(damage))
 
@@ -150,18 +159,26 @@ damage_types <- head(damage_sum$EVTYPE, n=5)
 damage_types
 ```
 
+```
+## [1] "Flood"               "Hurricane (Typhoon)" "STORM SURGE"        
+## [4] "Tornado"             "HAIL"
+```
+
 Further, the list is filtered to these types and recombined into a long format to fit for the plot.
 
-```{r}
+
+```r
 damage_sum_f <- damage_sum %>% filter(EVTYPE %in% damage_types)
 ```
 
-The most financial impact is caused by `r damage_sum$EVTYPE[1]` (`r format(damage_sum$damage[1]/100000000, scientific=FALSE, digits=0)` billion dollars damage) while `r damage_sum$EVTYPE[2]` (`r format(damage_sum$damage[2]/100000000, scientific=FALSE, digits=0)` billion dollars damage) is the second. All measures are totals of the time frame 1996 to 2012.
+The most financial impact is caused by Flood (1493 billion dollars damage) while Hurricane (Typhoon) (865 billion dollars damage) is the second. All measures are totals of the time frame 1996 to 2012.
 
-```{r 'figure2', fig.cap='Number of deaths and injuries by event type'}
+
+```r
 ggplot(damage_sum_f, aes(x = EVTYPE, y = damage)) + geom_bar(stat = "identity") + xlab("") + ylab("damages in dollars") + coord_flip()
-
 ```
+
+![Number of deaths and injuries by event type](storm_events_files/figure-html/figure2-1.png) 
 
 # Appendix
 
@@ -169,14 +186,18 @@ ggplot(damage_sum_f, aes(x = EVTYPE, y = damage)) + geom_bar(stat = "identity") 
 
 To check out how damages to population health are spread over the years, the sum of injuries and fatalities per year should be examined.
 
-```{r compare_years}
+
+```r
 # compare years
 health_year_sum <- harm_year_data %>% group_by(YEAR) %>% summarize(fatal = sum(FATALITIES), injured = sum(INJURIES)) %>% arrange(YEAR)
 health_year_result <- rbind(data.frame(year = health_year_sum$YEAR, count = health_year_sum$fatal, sev = "FATAL"), data.frame(year = health_year_sum$YEAR, count = health_year_sum$injured, sev = "INJURED"))
 ```
-```{r figure3health_damage_by_year}
+
+```r
 ggplot(health_year_result, aes(x = year, y = count, fill = sev)) + geom_bar(stat = "identity", position = "dodge") + xlab("Years") + geom_vline(xintercept = c(1954, 1995))
 ```
+
+![](storm_events_files/figure-html/figure3health_damage_by_year-1.png) 
 
 As described at [National Storm Events Database](http://www.ncdc.noaa.gov/stormevents/details.jsp) the data until 1954 only covers only tornado events and from 1955 to 1995 only tornado, thunderstorms and hail events. However, there were other events in these periods as well, but they were not reported. To break down the damage to population health by event type it makes not much sense to include the data from before 1996 because it would significantly bias the results towards those event types that were recorded over a longer period of time.
 
