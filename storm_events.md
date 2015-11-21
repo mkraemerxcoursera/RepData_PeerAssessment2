@@ -1,12 +1,9 @@
-# NEED TITLE HERE
+# Classification of natural hazard causes by harm on population and economic values
 Michael Krämer  
-02.11.2015  
-
-TITLE GOES HERE
-========================
+20.11.2015  
 
 ## Synopsis
-The report targets the questions what kind of weather incidents have the highest impact on population health and which cause the largest economic damage. What I found out.
+The report targets the questions what kind of natural hazards have the highest impact on population health and which cause the largest economic damage. Even though there are observations available since 1950, the full list of events was only collected since 1996 and therefor only the data from 1996 and newer was used in this analysis. It turns out that tornadoes and excessive heat account for the most fatalities and injuries while floods and hurricanes cause the most material damages.
 
 ## Data processing
 
